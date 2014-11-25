@@ -2,56 +2,89 @@
 <head>
     <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
     <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-    <script src="csv/graph.json" charset="utf-8"></script>
+    <script src="graph.json" charset="utf-8"></script>
 
     <style>
+
     .node {
-        stroke: #fff;
+        stroke: #000;
         stroke-width: 1.5px;
         cursor: pointer;
     }
 
     .link {
         stroke: #999;
-        stroke-opacity: .4;
+        stroke-width: 4px;
+        stroke-opacity: .3;
     }
     </style>
+
 </head>
 <body>
 
 </body>
     <script type="text/javascript">
-    var width = 1600,
-        height = 200;
-
-    var color = d3.scale.category20();
-
-    var force = d3.layout.force()
-        .charge(-30)
-        .linkDistance(function (d) { return 750 / d.value })
-        .linkStrength(function (d) { return 1 / d.value })
-        .gravity(0)
-        .size([width, height]);
+    var width = 960
+        height = 500;
 
     var svg = d3.select("body").append("svg")
         .attr("width", width)
         .attr("height", height);
 
-    var minDataPoint = d3.min(graph.nodes, function (node) {
-        return node.size;
+// d3.json("graph.json", function(error, graph) {
+    var minLinkCount = d3.min(graph.nodes, function (node) {
+        return node.link_count;
     });
 
-    var maxDataPoint = d3.max(graph.nodes, function (node) {
-        return node.size;
+    var maxLinkCount = d3.max(graph.nodes, function (node) {
+        return node.link_count;
     });
 
-    var linearScale = d3.scale.linear()
-        .domain([minDataPoint,maxDataPoint])
+    var sizeScale = d3.scale.linear()
+        .domain([minLinkCount,maxLinkCount])
         .range([5,25]);
 
-    console.log(minDataPoint, maxDataPoint);
+    var linkCountScale = d3.scale.linear()
+        .domain([minLinkCount,maxLinkCount])
+        .range([1,20]);
 
-    //d3.json("miserables.json", function(error, graph) {
+    var strenghScale = d3.scale.linear()
+        .domain([minLinkCount,maxLinkCount])
+        .range([1,20]);
+
+    var gravityScale = d3.scale.linear()
+        .domain([minLinkCount,maxLinkCount])
+        .range([1,2]);
+
+    var colours = ['rgb(255,255,255)','rgb(240,240,240)','rgb(217,217,217)','rgb(189,189,189)','rgb(150,150,150)','rgb(115,115,115)','rgb(82,82,82)','rgb(37,37,37)','rgb(0,0,0)'];
+
+    var heatmapColour = d3.scale.linear()
+      .domain(d3.range(0, 1, 1.0 / (colours.length - 1)))
+      .range(colours);
+
+      // d3.scale.linear().domain(d3.extent(dataset)).range([0,1]);
+
+    var color = d3.scale.linear()
+        .domain([minLinkCount,maxLinkCount])
+        .range([0, 1]);
+
+    var force = d3.layout.force()
+        .charge(-300)
+        .linkDistance(function(l, i) {
+            var n1 = l.source, n2 = l.target;
+            var dist = 30 * Math.pow(linkCountScale(Math.min(n1.link_count, n2.link_count)), 1);
+            return dist;
+        })
+        .linkStrength(function(l, i) {
+            var n1 = l.source, n2 = l.target;
+            return 1 / linkCountScale(Math.min(n1.link_count, n2.link_count));
+        })
+        .gravity(0.1)
+        .friction(0.5)
+        .chargeDistance(400)
+        .size([width, height]);
+
+
     force.nodes(graph.nodes)
         .links(graph.links)
         .start();
@@ -60,20 +93,19 @@
         .data(graph.links)
         .enter().append("line")
         .attr("class", "link")
-        .style("stroke-width", function (d) {
-        return Math.sqrt(d.value);
-    });
+        // .style("stroke-width", function (d) {
+        //     return Math.sqrt(d.value);
+        // });
 
     var node = svg.selectAll(".node")
         .data(graph.nodes)
         .enter().append("circle")
         .attr("class", "node")
         .attr("r", function (d) {
-            console.log(linearScale(d.size));
-            return linearScale(d.size);
+            return sizeScale(d.link_count);
         })
         .style("fill", function (d) {
-            return color(d.group);
+            return heatmapColour(color(d.link_count));
         })
         .call(force.drag);
 
@@ -97,10 +129,10 @@
         });
 
         node.attr("cx", function (d) {
-            return d.x = Math.max(linearScale(d.size), Math.min(width - linearScale(d.size), d.x));
+            return d.x = Math.max(sizeScale(d.link_count), Math.min(width - sizeScale(d.link_count), d.x));
         })
             .attr("cy", function (d) {
-            return d.y = Math.max(linearScale(d.size), Math.min(height - linearScale(d.size), d.y));
+            return d.y = Math.max(sizeScale(d.link_count), Math.min(height - sizeScale(d.link_count), d.y));
         });
     });
 
@@ -114,23 +146,33 @@
     }
 
     svg.selectAll("circle")
-        .on("mousedown", fade(0.1))
-        .on("mouseup", fade(0.4));;
+        .on("mousedown", fade(0.1, false))
+        .on("mouseup", fade(1, true));;
 
+// });
 
-    function fade(opacity) {
+    function fade(opacity, everyone) {
         return function(d) {
-            node.style("stroke-opacity", function(o) {
-                thisOpacity = isConnected(d, o) ? 1 : opacity;
-                this.setAttribute('fill-opacity', thisOpacity);
-                return thisOpacity;
-            });
+            if (everyone) {
+                node.style("stroke-opacity", function(o) {
+                    thisOpacity = isConnected(d, o) ? 1 : opacity;
+                    this.setAttribute('fill-opacity', thisOpacity);
+                    return thisOpacity;
+                });
 
-            link.style("stroke-opacity", opacity).style("stroke-opacity", function(o) {
-                return o.source === d || o.target === d ? 1 : opacity;
-            });
+                link.style("stroke-opacity", 0.3);
+            } else {
+                node.style("stroke-opacity", function(o) {
+                    thisOpacity = isConnected(d, o) ? 1 : opacity;
+                    this.setAttribute('fill-opacity', thisOpacity);
+                    return thisOpacity;
+                });
+
+                link.style("stroke-opacity", function(o) {
+                    return o.source === d || o.target === d ? 1 : opacity;
+                });
+            }
         };
     }
-    //});
     </script>
 </html>

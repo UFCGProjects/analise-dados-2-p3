@@ -7,17 +7,17 @@ def main():
 
     csvInput = open("csv/data.txt", "r")
 
-    i = 0
+    # i = 0
     for line in csvInput.read().split("\n"):
         values = line.split("#")
 
         if (len(values) > 1):
             append(dic, terms, values[0], values[1])
 
-        i += 1
+        # i += 1
 
-        if i > 1000:
-            break
+        # if i > 40000:
+            # break
 
     csvInput.close()
 
@@ -50,7 +50,7 @@ def filterMin(terms, result):
     tempResult = deepcopy(result)
     tempTerms = deepcopy(terms)
 
-    min_links = 2
+    min_links = 200
 
     for termA in tempResult:
         for termB in tempResult[termA]:
@@ -79,7 +79,7 @@ def filterMin(terms, result):
 def makeJSON(nodes, links):
     json = "var graph = { \"nodes\": ["
 
-    json += ",".join(["{\"name\": \"%s\", \"size\": %d}" % (node, size(nodes, links, node)) for node in nodes])
+    json += ",".join(["{\"name\": \"%s\", \"link_count\": %d}" % (node, link_count(nodes, links, node)) for node in nodes])
 
     json += "],\"links\": ["
 
@@ -90,7 +90,7 @@ def makeJSON(nodes, links):
     writeFile(json)
 
 
-def size(nodes, links, node):
+def link_count(nodes, links, node):
     result = 0
 
     if node in links:
@@ -104,7 +104,7 @@ def size(nodes, links, node):
 
 
 def writeFile(json):
-    csvOutput = open("csv/graph.json", "w")
+    csvOutput = open("graph.json", "w")
 
     csvOutput.write(json)
 
@@ -114,15 +114,15 @@ def writeFile(json):
 
 def put(result, termA, termB):
     if termB in result and termA in result[termB]:
-        return put(result, termB, termA)
+        result[termB][termA] += 1
+    else:
+        if termA not in result:
+            result[termA] = {}
 
-    if termA not in result:
-        result[termA] = {}
+        if termB not in result[termA]:
+            result[termA][termB] = 0
 
-    if termB not in result[termA]:
-        result[termA][termB] = 0
-
-    result[termA][termB] += 1
+        result[termA][termB] += 1
 
 
 def getIndex(terms, value):
