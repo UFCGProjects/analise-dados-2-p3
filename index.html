@@ -1,0 +1,135 @@
+<html>
+<head>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <script src="csv/graph.json" charset="utf-8"></script>
+
+    <style>
+    .node {
+        stroke: #fff;
+        stroke-width: 1.5px;
+        cursor: pointer;
+    }
+
+    .link {
+        stroke: #999;
+        stroke-opacity: .4;
+    }
+    </style>
+</head>
+<body>
+
+</body>
+    <script type="text/javascript">
+    var width = 1920 - 100,
+        height = 1080 - 150;
+
+    var color = d3.scale.category20();
+
+    var force = d3.layout.force()
+        .charge(-30)
+        .linkDistance(function (d) { return 1000 / d.value })
+        .linkStrength(function (d) { return 1 / d.value })
+        .size([width, height]);
+
+    var svg = d3.select("body").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    var minDataPoint = d3.min(graph.nodes, function (node) {
+        return node.size;
+    });
+
+    var maxDataPoint = d3.max(graph.nodes, function (node) {
+        return node.size;
+    });
+
+    var linearScale = d3.scale.linear()
+        .domain([minDataPoint,maxDataPoint])
+        .range([5,25]);
+
+    console.log(minDataPoint, maxDataPoint);
+
+    //d3.json("miserables.json", function(error, graph) {
+    force.nodes(graph.nodes)
+        .links(graph.links)
+        .start();
+
+    var link = svg.selectAll(".link")
+        .data(graph.links)
+        .enter().append("line")
+        .attr("class", "link")
+        .style("stroke-width", function (d) {
+        return Math.sqrt(d.value);
+    });
+
+    var node = svg.selectAll(".node")
+        .data(graph.nodes)
+        .enter().append("circle")
+        .attr("class", "node")
+        .attr("r", function (d) {
+            console.log(linearScale(d.size));
+            return linearScale(d.size);
+        })
+        .style("fill", function (d) {
+            return color(d.group);
+        })
+        .call(force.drag);
+
+    node.append("title")
+        .text(function (d) {
+        return d.name;
+    });
+
+    force.on("tick", function () {
+        link.attr("x1", function (d) {
+            return d.source.x;
+        })
+            .attr("y1", function (d) {
+            return d.source.y;
+        })
+            .attr("x2", function (d) {
+            return d.target.x;
+        })
+            .attr("y2", function (d) {
+            return d.target.y;
+        });
+
+        node.attr("cx", function (d) {
+            return d.x;
+        })
+            .attr("cy", function (d) {
+            return d.y;
+        });
+    });
+
+    var linkedByIndex = {};
+    graph.links.forEach(function(d) {
+        linkedByIndex[d.source.index + "," + d.target.index] = 1;
+    });
+
+    function isConnected(a, b) {
+        return linkedByIndex[a.index + "," + b.index] || linkedByIndex[b.index + "," + a.index] || a.index == b.index;
+    }
+
+    svg.selectAll("circle")
+        .on("mousedown", fade(0.1))
+        .on("mouseup", fade(0.4));;
+
+
+    function fade(opacity) {
+        return function(d) {
+            node.style("stroke-opacity", function(o) {
+                thisOpacity = isConnected(d, o) ? 1 : opacity;
+                this.setAttribute('fill-opacity', thisOpacity);
+                return thisOpacity;
+            });
+
+            link.style("stroke-opacity", opacity).style("stroke-opacity", function(o) {
+                return o.source === d || o.target === d ? 1 : opacity;
+            });
+        };
+    }
+    //});
+    </script>
+</html>
